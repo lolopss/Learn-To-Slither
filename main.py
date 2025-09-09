@@ -1,9 +1,8 @@
 import argparse
-import pygame
 import time
 import random
-
-
+import game
+import IA_Snake
 # --------------------------------SNAKE_GAME---------------------------------#
 
 
@@ -24,7 +23,7 @@ def parse_args():
     parser.add_argument(
         "-save",
         type=str,
-        default="./learning_state",
+        default="./learning_state/q_table.npy",
         help="Path to save the learning state"
     )
 
@@ -36,10 +35,23 @@ def parse_args():
         help="Enable or disable visualization (default: on)"
     )
 
+    parser.add_argument(
+        "-training",
+        choices=["on", "off"],
+        default="on",
+        help="Enable or disable IA training mode"
+    )
+
+    parser.add_argument(
+        "-episode",
+        type=int,
+        default=1001,
+        help="Amount of episodes to train AI"
+    )
     return parser.parse_args()
 
 # def game_loop():
-    
+
 
 def main():
     args = parse_args()
@@ -48,12 +60,8 @@ def main():
     print(f"Save path: {args.save}")
     print(f"Visual   : {args.visual}")
 
-    # --- placeholder for actual game logic ---
-    max_length = 4
-    max_duration = 17
+    IA_Snake.train_agent(args.save, args.episode, args.visual)
 
-    print(f"Game over, max length = {max_length}, "
-          f"max duration = {max_duration}")
     print(f"Save learning state in {args.save}")
 
 

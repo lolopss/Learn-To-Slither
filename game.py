@@ -2,14 +2,14 @@
 import pygame
 import random
 import sys
-
+import time
 # ---------------- CONFIG ---------------- #
-BOARD_SIZE = 10      # grid is BOARD_SIZE x BOARD_SIZE
+BOARD_SIZE = 10    # grid is BOARD_SIZE x BOARD_SIZE
 CELL_SIZE = 40       # pixel size of each cell
 INFO_PANEL_WIDTH = 300   # space on the right for additional information
 SIDE_PANEL_WIDTH = 100   # space on the left for additional information
 TOP_PANEL_HEIGHT = 50    # space on top for instructions/score
-BOTTOM_PANEL_HEIGHT = 50 # space on bottom for additional information
+BOTTOM_PANEL_HEIGHT = 50  # space on bottom for additional information
 FPS = 15              # frames per second (snake speed)
 
 WINDOW_WIDTH = BOARD_SIZE * CELL_SIZE + INFO_PANEL_WIDTH + SIDE_PANEL_WIDTH
@@ -20,6 +20,9 @@ WINDOW_HEIGHT = BOARD_SIZE * CELL_SIZE + TOP_PANEL_HEIGHT + BOTTOM_PANEL_HEIGHT
 class SnakeGame:
     def __init__(self, board_size=BOARD_SIZE):
         self.board_size = board_size
+        self.ate_green = 0  # Initialize ate_green
+        self.ate_red = 0    # Initialize ate_red
+        self.previous_distance = BOARD_SIZE // 2
         self.reset()
 
     def reset(self):
@@ -32,23 +35,32 @@ class SnakeGame:
         self.alive = True
         self.direction_changed = False  # Track if direction was changed in this step
 
+        # Initialize previous_distance for IA
+        # head_x, head_y = self.snake[0]
+        # apple_x, apple_y = self.green_apples[0]
+        # self.previous_distance = abs(head_x - apple_x) + abs(head_y - apple_y)
+
     def spawn_apples(self):
         """Always 2 green apples and 1 red apple on the board."""
-        occupied = set(self.snake)
+        occupied = set(self.snake)  # Include the snake's body as occupied
         self.green_apples = []
         self.red_apples = []
 
-        while len(self.green_apples) < 2:
-            pos = (random.randrange(self.board_size),
-                   random.randrange(self.board_size))
-            if pos not in occupied:
-                self.green_apples.append(pos)
+        # Generate all possible positions
+        all_positions = [(x, y) for x in range(self.board_size) for y in range(self.board_size)]
+        available_positions = [pos for pos in all_positions if pos not in occupied]
 
-        while len(self.red_apples) < 1:
-            pos = (random.randrange(self.board_size),
-                    random.randrange(self.board_size))
-            if pos not in occupied and pos not in self.green_apples:
-                self.red_apples.append(pos)
+        # Check if we have enough space
+        if len(available_positions) < 3:  # Need at least 3 positions (2 green + 1 red)
+            print("Warning: Not enough space for apples!")
+            return
+
+        # Randomly select positions for apples
+        selected_positions = random.sample(available_positions, 3)
+
+        # Assign first 2 to green apples, last 1 to red apple
+        self.green_apples = selected_positions[:2]
+        self.red_apples = [selected_positions[2]]
 
     def step(self):
         if not self.alive:
@@ -71,26 +83,42 @@ class SnakeGame:
             self.alive = False
             return
 
-        self.snake.insert(0, new_head)
-
         # Eat green apple (+1)
         if new_head in self.green_apples:
+            self.ate_green = 1  # Set ate_green to 1
+            self.ate_red = 0    # Reset ate_red
             self.green_apples.remove(new_head)
+            self.snake.insert(0, new_head)  # Add new head, don't remove tail (snake grows)
             self.add_apple(self.green_apples)  # Add a new green apple
             return
 
         # Eat red apple (-1)
         if new_head in self.red_apples:
+            self.ate_red = 1  # Set ate_red to 1
+            self.ate_green = 0  # Reset ate_green
             self.red_apples.remove(new_head)
-            self.snake.pop()  # Normal move
-            if self.snake:
-                self.snake.pop()  # Shrink extra
-            self.add_apple(self.red_apples)  # Add a new red apple
-            if not self.snake:
+            self.snake.insert(0, new_head)  # Add new head first
+            
+            # Remove tail (normal move)
+            if len(self.snake) > 1:
+                self.snake.pop()
+            
+            # Remove one more segment (shrink effect)
+            if len(self.snake) > 1:
+                self.snake.pop()
+            
+            # Check if snake is too small
+            if len(self.snake) < 1:
                 self.alive = False
+                return
+                
+            self.add_apple(self.red_apples)  # Add a new red apple
             return
 
         # Normal move
+        self.ate_green = 0  # Reset ate_green
+        self.ate_red = 0    # Reset ate_red
+        self.snake.insert(0, new_head)
         self.snake.pop()
 
     def add_apple(self, apple_list):
@@ -113,9 +141,32 @@ class SnakeGame:
             self.direction = new_dir
             self.direction_changed = True  # Mark direction as changed
 
+    def get_board(self):
+        """Generate a 2D grid representation of the game with walls outside the playable area."""
+        # Create an empty board filled with '0' (empty cells), including walls
+        board = [['W' if x == 0 or x == self.board_size + 1 or y == 0 or y == self.board_size + 1 else '0'
+                  for x in range(self.board_size + 2)] for y in range(self.board_size + 2)]
+
+        # Add the snake's body
+        for i, (x, y) in enumerate(self.snake):
+            if i == 0:
+                board[y + 1][x + 1] = 'H'  # Head of the snake
+            else:
+                board[y + 1][x + 1] = 'S'  # Body of the snake
+
+        # Add green apples
+        for x, y in self.green_apples:
+            board[y + 1][x + 1] = 'G'
+
+        # Add red apples
+        for x, y in self.red_apples:
+            board[y + 1][x + 1] = 'R'
+
+        return board
+
 
 # ---------------- DRAWING ---------------- #
-def draw_game(screen, game: SnakeGame):
+def draw_game(screen, game: SnakeGame, elapsed_time, total_reward):
     # Fill the entire screen with dark blue
     screen.fill((0, 0, 90))  # Dark blue background for all panels
 
@@ -185,6 +236,11 @@ def draw_game(screen, game: SnakeGame):
     text_rect = snake_size_text.get_rect(center=(WINDOW_WIDTH // 2, TOP_PANEL_HEIGHT // 2))  # Centered in the top panel
     screen.blit(snake_size_text, text_rect)
 
+    # Display elapsed time in the top panel
+    elapsed_time_text = font.render(f"Time: {int(elapsed_time)}s", True, (255, 255, 255))  # White text
+    elapsed_time_rect = elapsed_time_text.get_rect(center=(WINDOW_WIDTH  // 4, TOP_PANEL_HEIGHT // 2))  # Below the snake size text
+    screen.blit(elapsed_time_text, elapsed_time_rect)
+
     # Bottom panel
     pygame.draw.rect(screen, (0, 0, 139), (0, WINDOW_HEIGHT - BOTTOM_PANEL_HEIGHT, WINDOW_WIDTH, BOTTOM_PANEL_HEIGHT))  # Dark blue bottom panel
 
@@ -193,6 +249,18 @@ def draw_game(screen, game: SnakeGame):
 
     # Right panel
     pygame.draw.rect(screen, (0, 0, 139), (WINDOW_WIDTH - INFO_PANEL_WIDTH, 0, INFO_PANEL_WIDTH, WINDOW_HEIGHT))  # Dark blue right panel
+
+    # Display total reward on the right panel
+    total_reward_text = font.render(f"Total Reward: {total_reward}", True, (255, 255, 255))  # White text
+    screen.blit(total_reward_text, (WINDOW_WIDTH - INFO_PANEL_WIDTH + 10, 10))
+
+    # Display last moves' rewards on the right panel
+    last_rewards_title = font.render("Last Rewards:", True, (255, 255, 255))  # White text
+    screen.blit(last_rewards_title, (WINDOW_WIDTH - INFO_PANEL_WIDTH + 10, 50))
+
+    # for i, reward in enumerate(last_rewards[-10:]):  # Show the last 10 rewards
+    #     reward_text = font.render(f"{reward}", True, (255, 255, 255))  # White text
+    #     screen.blit(reward_text, (WINDOW_WIDTH - INFO_PANEL_WIDTH + 10, 80 + i * 30))
 
     pygame.display.flip()
 
@@ -205,6 +273,13 @@ def game_loop():
     clock = pygame.time.Clock()
 
     game = SnakeGame(BOARD_SIZE)
+    board = game.get_board()
+
+    # Print the board
+    for row in board:
+        print(' '.join(row))
+
+    start_time = time.time()  # Record the start time
 
     while True:
         for event in pygame.event.get():
@@ -224,9 +299,11 @@ def game_loop():
         if game.alive:
             game.step()
 
-        draw_game(screen, game)
-        clock.tick(FPS) # Speed of the snake
+        elapsed_time = time.time() - start_time  # Calculate elapsed time
+        draw_game(screen, game, elapsed_time, total_reward, last_rewards)  # Pass elapsed time to draw_game
+        clock.tick(FPS)  # Speed of the snake
 
 
 if __name__ == "__main__":
     game_loop()
+    print()
