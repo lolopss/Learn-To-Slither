@@ -6,10 +6,10 @@ import time
 # ---------------- CONFIG ---------------- #
 BOARD_SIZE = 10    # grid is BOARD_SIZE x BOARD_SIZE
 CELL_SIZE = 40       # pixel size of each cell
-INFO_PANEL_WIDTH = 300   # space on the right for additional information
+INFO_PANEL_WIDTH = 300   # space on the right for smoother interface
 SIDE_PANEL_WIDTH = 100   # space on the left for additional information
-TOP_PANEL_HEIGHT = 50    # space on top for instructions/score
-BOTTOM_PANEL_HEIGHT = 50  # space on bottom for additional information
+TOP_PANEL_HEIGHT = 50    # space on top for time + score
+BOTTOM_PANEL_HEIGHT = 50  # space on bottom
 FPS = 15              # frames per second (snake speed)
 
 WINDOW_WIDTH = BOARD_SIZE * CELL_SIZE + INFO_PANEL_WIDTH + SIDE_PANEL_WIDTH
@@ -20,8 +20,8 @@ WINDOW_HEIGHT = BOARD_SIZE * CELL_SIZE + TOP_PANEL_HEIGHT + BOTTOM_PANEL_HEIGHT
 class SnakeGame:
     def __init__(self, board_size=BOARD_SIZE):
         self.board_size = board_size
-        self.ate_green = 0  # Initialize ate_green
-        self.ate_red = 0    # Initialize ate_red
+        self.ate_green = 0
+        self.ate_red = 0
         self.previous_distance = BOARD_SIZE // 2
         self.reset()
 
@@ -29,16 +29,11 @@ class SnakeGame:
         # Snake starts length 3, horizontal, in the middle of the board
         start_x = self.board_size // 2
         start_y = self.board_size // 2
-        self.snake = [(start_x - i, start_y) for i in range(3)]  # Horizontal snake
+        self.snake = [(start_x - i, start_y) for i in range(3)]  # Horizontal
         self.direction = (1, 0)  # Moving right
         self.spawn_apples()
         self.alive = True
         self.direction_changed = False  # Track if direction was changed in this step
-
-        # Initialize previous_distance for IA
-        # head_x, head_y = self.snake[0]
-        # apple_x, apple_y = self.green_apples[0]
-        # self.previous_distance = abs(head_x - apple_x) + abs(head_y - apple_y)
 
     def spawn_apples(self):
         """Always 2 green apples and 1 red apple on the board."""
@@ -85,8 +80,8 @@ class SnakeGame:
 
         # Eat green apple (+1)
         if new_head in self.green_apples:
-            self.ate_green = 1  # Set ate_green to 1
-            self.ate_red = 0    # Reset ate_red
+            self.ate_green = 1
+            self.ate_red = 0
             self.green_apples.remove(new_head)
             self.snake.insert(0, new_head)  # Add new head, don't remove tail (snake grows)
             self.add_apple(self.green_apples)  # Add a new green apple
@@ -132,7 +127,7 @@ class SnakeGame:
 
     def change_direction(self, new_dir):
         if self.direction_changed:
-            return  # Ignore further direction changes in the same step
+            return  # Ignore further direction changes in the same step (CHECK MIGHT BE PROBLEM FOR EPSILON)
 
         dx, dy = self.direction
         ndx, ndy = new_dir
