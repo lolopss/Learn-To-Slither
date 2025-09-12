@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 import pygame
 import random
+import numpy as np
 import sys
 import time
+from IA_visualisation import draw_right_panel
+
 # ---------------- CONFIG ---------------- #
 BOARD_SIZE = 10    # grid is BOARD_SIZE x BOARD_SIZE
 CELL_SIZE = 40       # pixel size of each cell
-INFO_PANEL_WIDTH = 300   # space on the right for smoother interface
+INFO_PANEL_WIDTH = 600   # space on the right for smoother interface
 SIDE_PANEL_WIDTH = 100   # space on the left for additional information
 TOP_PANEL_HEIGHT = 50    # space on top for time + score
 BOTTOM_PANEL_HEIGHT = 50  # space on bottom
-FPS = 15              # frames per second (snake speed)
+FPS = 3              # frames per second (snake speed)
 
 WINDOW_WIDTH = BOARD_SIZE * CELL_SIZE + INFO_PANEL_WIDTH + SIDE_PANEL_WIDTH
 WINDOW_HEIGHT = BOARD_SIZE * CELL_SIZE + TOP_PANEL_HEIGHT + BOTTOM_PANEL_HEIGHT
@@ -42,8 +45,12 @@ class SnakeGame:
         self.red_apples = []
 
         # Generate all possible positions
-        all_positions = [(x, y) for x in range(self.board_size) for y in range(self.board_size)]
-        available_positions = [pos for pos in all_positions if pos not in occupied]
+        all_positions = [
+            (x, y) for x in range(self.board_size) for y in range(self.board_size)
+        ]
+        available_positions = [
+            pos for pos in all_positions if pos not in occupied
+        ]
 
         # Check if we have enough space
         if len(available_positions) < 3:  # Need at least 3 positions (2 green + 1 red)
@@ -161,104 +168,156 @@ class SnakeGame:
 
 
 # ---------------- DRAWING ---------------- #
-def draw_game(screen, game: SnakeGame, elapsed_time, total_reward):
-    # Fill the entire screen with dark blue
-    screen.fill((0, 0, 90))  # Dark blue background for all panels
 
-    # Game board area
-    board_surface = pygame.Surface(
-        (BOARD_SIZE * CELL_SIZE, BOARD_SIZE * CELL_SIZE))
-    board_surface.fill((50, 50, 50))  # Dark gray background for the board
 
-    # Grid
+
+def compute_direction_scan(game):
+    """
+    Returns per-direction info for the 4 straight rays from the head:
+      directions order: UP(0), RIGHT(1), DOWN(2), LEFT(3)
+
+    For each direction we compute:
+        immediate_block  : 1 if the NEXT cell is wall or snake body
+        green_visible    : 1 if any green apple is somewhere along that ray
+        red_visible      : 1 if any red apple is along the ray
+        body_visible     : 1 if any (non-head) snake segment is along the ray (past the first cell)
+        free_len         : how many free cells (not wall, not body) until collision/wall
+    Returns:
+        dict with keys:
+            'headers' : ["UP","RIGHT","DOWN","LEFT"]
+            'rows'    : list of row descriptors:
+                [
+                  ("ImmBlk", [..4 ints..]),
+                  ("Green" , [..]),
+                  ("Red"   , [..]),
+                  ("Body"  , [..]),
+                  ("Free"  , [..]),
+                  ("Total" , [..])  # Simple sum of binary lines except Free
+                ]
+    """
+    head_x, head_y = game.snake[0]
+    body = set(game.snake[1:])
+    greens = set(game.green_apples)
+    reds = set(game.red_apples)
+
+    directions = [(0,-1),(1,0),(0,1),(-1,0)]
+    headers = ["UP","RIGHT","DOWN","LEFT"]
+
+    imm    = []
+    gvis   = []
+    rvis   = []
+    bvis   = []
+    free   = []
+
+    size = game.board_size
+
+    for dx, dy in directions:
+        nx, ny = head_x + dx, head_y + dy
+        # immediate block
+        immediate_block = int(nx < 0 or nx >= size or ny < 0 or ny >= size or (nx, ny) in body)
+        imm.append(immediate_block)
+
+        # scan ray
+        green_seen = 0
+        red_seen   = 0
+        body_seen  = 0
+        free_cells = 0
+
+        cx, cy = head_x, head_y
+        while True:
+            cx += dx
+            cy += dy
+            if cx < 0 or cx >= size or cy < 0 or cy >= size:
+                break
+            pos = (cx, cy)
+            if pos in body:
+                body_seen = 1
+                break
+            if pos in greens:
+                green_seen = 1
+            if pos in reds:
+                red_seen = 1
+            free_cells += 1
+            # if both apples seen we can still continue for body but break early if desired
+            # keep scanning to know if body occurs behind apples:
+            # (optional early-break omitted for clarity)
+
+        gvis.append(green_seen)
+        rvis.append(red_seen)
+        bvis.append(body_seen)
+        free.append(free_cells)
+
+    # total = sum of selected binary rows (choose which to aggregate)
+    total = [imm[i] + gvis[i] + rvis[i] + bvis[i] for i in range(4)]
+
+    rows = [
+        ("ImmBlk", imm),
+        ("Green", gvis),
+        ("Red", rvis),
+        ("Body", bvis),
+        ("Free", free),
+        ("Total", total),
+    ]
+    return {
+        "headers": headers,
+        "rows": rows
+    }
+
+
+def draw_game(screen, game: 'SnakeGame', elapsed_time, total_reward=0,
+              last_action=None, action_values=None, show_info=True):
+    screen.fill((0, 0, 90))
+    board_surface = pygame.Surface((BOARD_SIZE * CELL_SIZE, BOARD_SIZE * CELL_SIZE))
+    board_surface.fill((50, 50, 50))
     for x in range(game.board_size):
         for y in range(game.board_size):
-            rect = pygame.Rect(
-                x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-            pygame.draw.rect(board_surface, (70, 70, 70), rect, 1)  # Light gray grid lines
-
-    # Snake
-    for i, (x, y) in enumerate(game.snake):
-        rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-        if i == 0:  # Head of the snake
-            pygame.draw.rect(board_surface, (0, 200, 150), rect)  # Teal color for the head
-
-            # Draw eyes on the head
-            eye_size = CELL_SIZE // 5
-            eye_offset_x = CELL_SIZE // 4
-            eye_offset_y = CELL_SIZE // 4
-
-            # Left eye
-            left_eye = pygame.Rect(
-                x * CELL_SIZE + eye_offset_x,
-                y * CELL_SIZE + eye_offset_y,
-                eye_size,
-                eye_size
-            )
-            pygame.draw.rect(board_surface, (255, 255, 255), left_eye)
-
-            # Right eye
-            right_eye = pygame.Rect(
-                x * CELL_SIZE + CELL_SIZE - eye_offset_x - eye_size,
-                y * CELL_SIZE + eye_offset_y,
-                eye_size,
-                eye_size
-            )
-            pygame.draw.rect(board_surface, (255, 255, 255), right_eye)
+            pygame.draw.rect(board_surface, (70, 70, 70),
+                             pygame.Rect(x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE), 1)
+    for i,(x,y) in enumerate(game.snake):
+        rect = pygame.Rect(x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE)
+        if i==0:
+            pygame.draw.rect(board_surface, (0,200,150), rect)
+            eye_size = CELL_SIZE//5; off_x = CELL_SIZE//4; off_y = CELL_SIZE//4
+            pygame.draw.rect(board_surface, (255,255,255),
+                             pygame.Rect(x*CELL_SIZE+off_x, y*CELL_SIZE+off_y, eye_size, eye_size))
+            pygame.draw.rect(board_surface, (255,255,255),
+                             pygame.Rect(x*CELL_SIZE+CELL_SIZE-off_x-eye_size,
+                                         y*CELL_SIZE+off_y, eye_size, eye_size))
         else:
-            pygame.draw.rect(board_surface, (0, 150, 100), rect)  # Greenish color for the body
+            pygame.draw.rect(board_surface, (0,150,100), rect)
+    for (x,y) in game.green_apples:
+        pygame.draw.rect(board_surface, (100,255,100),
+                         pygame.Rect(x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE))
+    for (x,y) in game.red_apples:
+        pygame.draw.rect(board_surface, (255,100,100),
+                         pygame.Rect(x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE))
 
-    # Green apples
-    for (x, y) in game.green_apples:
-        rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-        pygame.draw.rect(board_surface, (100, 255, 100), rect)  # Bright green apples
-
-    # Red apples
-    for (x, y) in game.red_apples:
-        rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-        pygame.draw.rect(board_surface, (255, 100, 100), rect)  # Soft red apples
-
-    # Blit the game board onto the screen at the correct position
     screen.blit(board_surface, (SIDE_PANEL_WIDTH, TOP_PANEL_HEIGHT))
+    pygame.draw.rect(screen, (0,0,139),
+                     pygame.Rect(0,0,WINDOW_WIDTH,TOP_PANEL_HEIGHT))
+    font = pygame.font.SysFont(None, 36)
+    snake_size_text = font.render(f"Snake Size: {len(game.snake)}", True, (255,255,255))
+    screen.blit(snake_size_text,
+                snake_size_text.get_rect(center=(WINDOW_WIDTH//2.9, TOP_PANEL_HEIGHT//2)))
+    elapsed_time_text = font.render(f"Time: {int(elapsed_time)}s", True, (255,255,255))
+    screen.blit(elapsed_time_text,
+                elapsed_time_text.get_rect(center=(WINDOW_WIDTH//6, TOP_PANEL_HEIGHT//2)))
 
-    # Draw additional panels
-    # Top panel
-    pygame.draw.rect(screen, (0, 0, 139), (0, 0, WINDOW_WIDTH, TOP_PANEL_HEIGHT))  # Dark blue top panel
-
-    # Display snake size in the middle of the top panel
-    font = pygame.font.SysFont(None, 36)  # Use a default font with size 36
-    snake_size_text = font.render(f"Snake Size: {len(game.snake)}", True, (255, 255, 255))  # White text
-    text_rect = snake_size_text.get_rect(center=(WINDOW_WIDTH // 2, TOP_PANEL_HEIGHT // 2))  # Centered in the top panel
-    screen.blit(snake_size_text, text_rect)
-
-    # Display elapsed time in the top panel
-    elapsed_time_text = font.render(f"Time: {int(elapsed_time)}s", True, (255, 255, 255))  # White text
-    elapsed_time_rect = elapsed_time_text.get_rect(center=(WINDOW_WIDTH  // 4, TOP_PANEL_HEIGHT // 2))  # Below the snake size text
-    screen.blit(elapsed_time_text, elapsed_time_rect)
-
-    # Bottom panel
-    pygame.draw.rect(screen, (0, 0, 139), (0, WINDOW_HEIGHT - BOTTOM_PANEL_HEIGHT, WINDOW_WIDTH, BOTTOM_PANEL_HEIGHT))  # Dark blue bottom panel
-
-    # Left panel
-    pygame.draw.rect(screen, (0, 0, 139), (0, 0, SIDE_PANEL_WIDTH, WINDOW_HEIGHT))  # Dark blue left panel
-
-    # Right panel
-    pygame.draw.rect(screen, (0, 0, 139), (WINDOW_WIDTH - INFO_PANEL_WIDTH, 0, INFO_PANEL_WIDTH, WINDOW_HEIGHT))  # Dark blue right panel
-
-    # Display total reward on the right panel
-    total_reward_text = font.render(f"Total Reward: {total_reward}", True, (255, 255, 255))  # White text
-    screen.blit(total_reward_text, (WINDOW_WIDTH - INFO_PANEL_WIDTH + 10, 10))
-
-    # Display last moves' rewards on the right panel
-    last_rewards_title = font.render("Last Rewards:", True, (255, 255, 255))  # White text
-    screen.blit(last_rewards_title, (WINDOW_WIDTH - INFO_PANEL_WIDTH + 10, 50))
-
-    # for i, reward in enumerate(last_rewards[-10:]):  # Show the last 10 rewards
-    #     reward_text = font.render(f"{reward}", True, (255, 255, 255))  # White text
-    #     screen.blit(reward_text, (WINDOW_WIDTH - INFO_PANEL_WIDTH + 10, 80 + i * 30))
+    pygame.draw.rect(screen, (0,0,139),
+                     pygame.Rect(0, WINDOW_HEIGHT-BOTTOM_PANEL_HEIGHT,
+                                 WINDOW_WIDTH, BOTTOM_PANEL_HEIGHT))
+    pygame.draw.rect(screen, (0,0,139),
+                     pygame.Rect(0,0,SIDE_PANEL_WIDTH,WINDOW_HEIGHT))
+    # Right panel call
+    if show_info:
+        draw_right_panel(screen, game,
+                         elapsed_time=elapsed_time,
+                         total_reward=total_reward,
+                         last_action=last_action,
+                         action_values=action_values,
+                         info_panel_width=INFO_PANEL_WIDTH)
 
     pygame.display.flip()
-
 
 # ---------------- MAIN LOOP ---------------- #
 def game_loop():

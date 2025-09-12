@@ -1,7 +1,7 @@
 import numpy as np
 
 # Load the q_table.npy file
-q_table_path = './learning_state/q_table.npy'
+q_table_path = './learning_state/episode_lengths.npy'
 q_table = np.load(q_table_path)
 
 # Print the last 5 entries

@@ -3,6 +3,7 @@ import time
 import random
 import game
 import IA_Snake
+from lobby import run_lobby
 # --------------------------------SNAKE_GAME---------------------------------#
 
 
@@ -60,8 +61,9 @@ def main():
     print(f"Save path: {args.save}")
     print(f"Visual   : {args.visual}")
 
-    IA_Snake.train_agent(args.save, args.episode, args.visual)
-
+    
+    # IA_Snake.train_agent(args.save, args.episode, args.visual)
+    run_lobby()
     print(f"Save learning state in {args.save}")
 
 
