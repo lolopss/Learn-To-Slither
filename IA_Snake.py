@@ -26,7 +26,7 @@ interval_best_seed = None
 
 # For graph.py
 episode_lengths = []
-# -------------------------------- STATE ENCODING ----------------------------- #
+# -------------------------------- STATE ENCODING --------------------------- #
 
 
 def encode_state(game):
@@ -36,7 +36,7 @@ def encode_state(game):
         - danger_immediate (cell right next to head is wall or snake body)
         - any green apple somewhere further in that line (before wall)
         - any red apple somewhere further in that line
-    No other info (no current heading, no relative apple direction, no diagonals).
+    No other info (no current heading, no relative apple direction).
     Each direction => 3 bits => a value 0..7:
         bit2 = danger_immediate
         bit1 = green_in_line
@@ -44,7 +44,7 @@ def encode_state(game):
     State index = base-8 number formed by (UP, RIGHT, DOWN, LEFT) codes.
     """
     head_x, head_y = game.snake[0]
-    directions = [(0,-1),(1,0),(0,1),(-1,0)]  # UP, RIGHT, DOWN, LEFT
+    directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]  # UP, RIGHT, DOWN, LEFT
     body = set(game.snake)
     greens = set(game.green_apples)
     reds = set(game.red_apples)
@@ -64,7 +64,8 @@ def encode_state(game):
         while True:
             cx += dx
             cy += dy
-            if cx < 0 or cx >= game.board_size or cy < 0 or cy >= game.board_size:
+            if (cx < 0 or cx >= game.board_size or
+               cy < 0 or cy >= game.board_size):
                 break
             if (cx, cy) in greens:
                 green_in_line = True
@@ -73,7 +74,7 @@ def encode_state(game):
             if green_in_line and red_in_line:
                 break
 
-        code = (danger_immediate << 2) | (green_in_line << 1) | red_in_line  # 0..7
+        code = (danger_immediate << 2) | (green_in_line << 1) | red_in_line
         codes.append(code)
 
     state = 0
@@ -82,59 +83,56 @@ def encode_state(game):
     return state  # 0 .. 8^4 - 1
 
 
-# --- (Optional) Safety: reallocate Q_table if loaded file has old shape ---
 def ensure_qtable_shape():
     global Q_table
     if Q_table.shape != (state_space_size, action_space_size):
         Q_table = np.zeros((state_space_size, action_space_size))
 
-# Call ensure_qtable_shape() right after loading a saved table in train_agent():
-# try:
-#     Q_table = np.load(save_path)
-#     ensure_qtable_shape()
-#     ...
-# except FileNotFoundError:
-#     ...
 # ----------------------- REWARD FUNCTION ----------------- #
 
+
 def get_reward(game):
-    if not game.alive: return -120
-    if game.ate_green: return 25
-    if game.ate_red:   return -15
+    if not game.alive:
+        return -120
+    if game.ate_green:
+        return 10
+    if game.ate_red:
+        return -10
 
-    head_x, head_y = game.snake[0]
-    apple_x, apple_y = game.green_apples[0]
-    dist = abs(head_x - apple_x) + abs(head_y - apple_y)
+    # head_x, head_y = game.snake[0]
+    # apple_x, apple_y = game.green_apples[0]
+    # dist = abs(head_x - apple_x) + abs(head_y - apple_y)
 
-    if not hasattr(game, "recent_heads"):
-        game.recent_heads = []
-    game.recent_heads.append((head_x, head_y))
-    if len(game.recent_heads) > 14: game.recent_heads.pop(0)
+    # if not hasattr(game, "recent_heads"):
+    #     game.recent_heads = []
+    # game.recent_heads.append((head_x, head_y))
+    # if len(game.recent_heads) > 14:
+    #     game.recent_heads.pop(0)
 
-    closer = dist < game.previous_distance
-    farther = dist > game.previous_distance
-    game.previous_distance = dist
-
+    # closer = dist < game.previous_distance
+    # farther = dist > game.previous_distance
+    # game.previous_distance = dist
     reward = 0
-    if closer: reward += 1.0
-    elif farther: reward -= 1
-    else: reward -= 0.5
-
-    # loop penalty
-    if len(game.recent_heads) == 14 and len(set(game.recent_heads)) <= 5:
-        reward -= 3
-
+    # if closer:
+    #     reward += 1.0
+    # elif farther:
+    #     reward -= 1
+    # else:
+    #     reward -= 0.5
+    # # loop penalty
+    # if len(game.recent_heads) == 14 and len(set(game.recent_heads)) <= 5:
+    #     reward -= 3
     # mild step cost to encourage efficiency
-    reward -= 0.05
+    # reward -= 0.05
 
     return reward
 
-# -------------------------------- TRAINING LOOP ------------------------------- #
+# -------------------------------- TRAINING LOOP --------------------- #
 
 
 def get_valid_actions(game, allow_opposite=False):
     # 0=UP,1=DOWN,2=LEFT,3=RIGHT
-    dirs = [(0,-1),(0,1),(-1,0),(1,0)]
+    dirs = [(0, -1), (0, 1), (-1, 0), (1, 0)]
     head_x, head_y = game.snake[0]
     cur_dx, cur_dy = game.direction
     size = game.board_size
@@ -151,6 +149,7 @@ def get_valid_actions(game, allow_opposite=False):
         valid.append(a)
     return valid
 
+
 def safe_argmax(qrow, game):
     valid = get_valid_actions(game)
     if not valid:
@@ -158,6 +157,7 @@ def safe_argmax(qrow, game):
     # pick best among valid
     best_a = max(valid, key=lambda a: qrow[a])
     return int(best_a)
+
 
 def choose_action(state, Q_table, epsilon, game):
     global explore_count, exploit_count
@@ -222,7 +222,7 @@ def print_vision(game, step_idx=None):
     reveal(head_x, head_y)
 
     # Rays: up, down, left, right
-    for dx, dy in [(0,-1),(0,1),(-1,0),(1,0)]:
+    for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
         x, y = head_x, head_y
         while True:
             x += dx
@@ -296,7 +296,8 @@ def train_agent(save_path, nb_episodes, visual):
             steps += 1
 
             # Q-learning update
-            best_next_action = np.max(Q_table[next_state]) if game.alive and game.snake else 0
+            best_next_action = (np.max(Q_table[next_state]) if
+                                game.alive and game.snake else 0)
             Q_table[state, action] = Q_table[state, action] + alpha * (
                 reward + gamma * best_next_action - Q_table[state, action]
             )
@@ -313,7 +314,7 @@ def train_agent(save_path, nb_episodes, visual):
             interval_best_seed = episode_seed
         scores.append(final_score)
         recent_scores.append(final_score)
-        recent_rewards.append(total_reward)  # Add total reward for this episode
+        recent_rewards.append(total_reward)  # Add total reward to episode
 
         if len(recent_scores) > 1000:
             recent_scores.pop(0)
@@ -329,11 +330,12 @@ def train_agent(save_path, nb_episodes, visual):
         if (episode + 1) % 1000 == 0:
             avg_score = np.mean(recent_scores) if recent_scores else 0
             avg_reward = np.mean(recent_rewards) if recent_rewards else 0
-            total = explore_count + exploit_count
-            print(f"Episode {episode + 1}: Avg length (last 1000): {avg_score:.2f}, "
-                  f"Avg Reward (last 1000): {avg_reward:.2f}, Epsilon: {epsilon:.3f},\n"
-                  f"Exploration ratio last run: {explore_count / total:.3f} (explore:{explore_count} exploit:{exploit_count}), top score : {top_score}"
-                  f"BestCurrent10k: {interval_best_score}\n")
+            print((
+                f"Episode {episode + 1}: "
+                f"Avg length (last 1000): {avg_score:.2f}, "
+                f"Avg Reward (last 1000): {avg_reward:.2f}, "
+                f"Epsilon: {epsilon:.3f}\n"
+                f"top score: {top_score}"))
 
         # Save periodically
         if (episode + 1) % 10000 == 0:
@@ -344,9 +346,6 @@ def train_agent(save_path, nb_episodes, visual):
             if visual == "on":
                 print(f"Visualizing AI playing at episode {episode + 1}")
                 play_single_game(save_path, Q_table)
-                # if interval_best_seed is not None:
-                #     print(f"Replaying best run of last 10k (score={interval_best_score})")
-                #     replay_best_run(interval_best_seed, interval_best_actions, Q_table)
 
     # Save final Q-table
     np.save(save_path, Q_table)
@@ -354,14 +353,11 @@ def train_agent(save_path, nb_episodes, visual):
 
     import os
     os.makedirs("learning_state", exist_ok=True)
-    np.save("learning_state/episode_lengths.npy", np.array(episode_lengths, dtype=int))
+    np.save("learning_state/episode_lengths.npy",
+            np.array(episode_lengths, dtype=int))
     print("Saved per-episode lengths to learning_state/episode_lengths.npy")
     return scores
 
-# Save score array into a file for graphs.py
-
-
-# IA_Snake.py — add above play_single_game
 
 def _snapshot(game, total_reward):
     return {
@@ -376,6 +372,7 @@ def _snapshot(game, total_reward):
         "previous_distance": game.previous_distance,
         "total_reward": total_reward,
     }
+
 
 def _restore(game, snap):
     game.snake = list(snap["snake"])
@@ -407,27 +404,27 @@ def play_single_game(save_path, Q_table):
     # History
     total_reward = 0.0
     history = [_snapshot(game, total_reward)]  # history[0] = initial state
-    history_actions = []   # action taken to reach history[i] (i>=1): history_actions[i-1]
+    history_actions = []   # action taken to reach history[i] (i>=1):
     history_qrows = []     # Q row used for that action
     step_idx = 0           # index into history (0..len(history)-1)
     step_mode = False
 
     def redraw(idx, with_highlight=True):
         nonlocal total_reward
-        # Restore state at idx and draw; print what snake sees
         total_reward = _restore(game, history[idx])
         print_vision(game, idx)
-        # Pick highlight from history if available
-        if with_highlight and idx > 0 and idx-1 < len(history_actions):
-            last_action = history_actions[idx-1]
-            qrow = history_qrows[idx-1]
+
+        if game.alive:
+            s = encode_state(game)
+            next_qrow = Q_table[s]
+            next_action = safe_argmax(next_qrow, game)
         else:
-            last_action = None
-            qrow = None
+            next_qrow = None
+            next_action = None
+
         elapsed = idx * 0.1
         draw_game(screen, game, elapsed, total_reward,
-                  last_action=last_action, action_values=qrow)
-
+                last_action=next_action, action_values=next_qrow)
     def forward_compute_one():
         """Compute one AI step from current end of history, append snapshot, draw."""
         nonlocal total_reward, step_idx
@@ -492,43 +489,6 @@ def play_single_game(save_path, Q_table):
 
     pygame.quit()
 
-# def replay_best_run(seed, actions, Q_table):
-#     pygame.init()
-#     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-#     pygame.display.set_caption("Best Run (last 10k eps)")
-#     clock = pygame.time.Clock()
-
-#     # Recreate exact randomness for apple placement
-#     random.seed(seed)
-#     game = SnakeGame()
-#     game.reset()
-
-#     total_reward = 0
-#     steps = 0
-
-#     for action in actions:
-#         for event in pygame.event.get():
-#             if event.type == pygame.QUIT:
-#                 pygame.quit()
-#                 return
-#         # Apply recorded action (already 0..3)
-#         direction = action_to_direction(action)
-#         game.change_direction(direction)
-#         game.step()
-
-#         # Optional: recompute reward for display (using same get_reward logic)
-#         # (Safe fallback if apples changed exactly same due to seed)
-#         # We don't strictly need total_reward; keep simple:
-#         draw_game(screen, game, steps * 0.1, total_reward)
-#         clock.tick(15)
-#         steps += 1
-#         if not game.alive:
-#             break
-
-#     # Hold a short moment
-#     pygame.time.delay(500)
-#     pygame.quit()
-
 # --- Add below imports / globals ---
 def print_vision(game, step_idx=None):
     """
@@ -580,7 +540,6 @@ def print_vision(game, step_idx=None):
     for row in grid:
         print(''.join(row))
     print()  # extra newline
-
 
 
 def test_agent(save_path, nb_games=10):

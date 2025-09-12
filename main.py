@@ -63,7 +63,7 @@ def main():
 
     
     # IA_Snake.train_agent(args.save, args.episode, args.visual)
-    run_lobby()
+    run_lobby(args.save, args.episode, args.visual)
     print(f"Save learning state in {args.save}")
 
 
