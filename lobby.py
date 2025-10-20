@@ -10,7 +10,7 @@ LOBBY_H = 280
 
 
 def run_lobby(save_path="./learning_state/q_table.npy", episodes=1001,
-              visual="on"):
+              visual="on", speed=15):
     """Small lobby: title + vertical buttons (Play, Train, Quit)."""
     def _load_q(path):
         try:
@@ -81,7 +81,8 @@ def run_lobby(save_path="./learning_state/q_table.npy", episodes=1001,
                     return
                 elif event.key == pygame.K_p:
                     pygame.quit()
-                    IA.play_single_game(save_path, _load_q(save_path))
+                    IA.play_single_game(save_path, _load_q(save_path),
+                                        epsilon_override=None, viz_fps=speed)
                     screen = _make_screen()
                     btns = _draw(screen)
                 elif event.key == pygame.K_t:
@@ -96,7 +97,8 @@ def run_lobby(save_path="./learning_state/q_table.npy", episodes=1001,
                     return
                 if btns["play"].collidepoint(mx, my):
                     pygame.quit()
-                    IA.play_single_game(save_path, _load_q(save_path))
+                    IA.play_single_game(save_path, _load_q(save_path),
+                                        epsilon_override=None, viz_fps=speed)
                     screen = _make_screen()
                     btns = _draw(screen)
                 if btns["train"].collidepoint(mx, my):

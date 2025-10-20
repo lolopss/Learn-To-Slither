@@ -49,6 +49,13 @@ def parse_args():
         default=1001,
         help="Amount of episodes to train AI"
     )
+
+    parser.add_argument(
+        "-speed",
+        type=int,
+        default=15,
+        help="Visualizer speed (frames per second)"
+    )
     return parser.parse_args()
 
 # def game_loop():
@@ -63,7 +70,7 @@ def main():
 
     
     # IA_Snake.train_agent(args.save, args.episode, args.visual)
-    run_lobby(args.save, args.episode, args.visual)
+    run_lobby(args.save, args.episode, args.visual, args.speed)
     print(f"Save learning state in {args.save}")
 
 

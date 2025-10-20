@@ -34,7 +34,6 @@ def main():
         print(f"[ERROR] Could not load file: {e}")
         sys.exit(1)
 
-    # Debug info
     print(f"[INFO] Loaded: {full_path}")
     print(f"[INFO] Shape: {data.shape}, dtype: {data.dtype}")
 

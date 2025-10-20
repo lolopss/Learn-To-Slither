@@ -12,9 +12,9 @@ Q_table = np.full((state_space_size, action_space_size), 3.0, dtype=float)
 
 # Improved hyperparameters
 alpha = 0.1         # learning rate
-gamma = 0.9         # Higher discount factor - care more about future
+gamma = 0.95         # Higher discount factor - care more about future
 epsilon = 0.1        # Exploration rate
-epsilon_decay = 0.9995  # Slower decay
+epsilon_decay = 0.99945  # Slower decay
 min_epsilon = 0.01   # Lower minimum exploration
 explore_count = 0
 exploit_count = 0
@@ -95,9 +95,10 @@ def get_reward(game):
     if not game.alive:
         return -120
     if game.ate_green:
-        return 10
+        return 16
     if game.ate_red:
         return -10
+    reward = -1
 
     # head_x, head_y = game.snake[0]
     # apple_x, apple_y = game.green_apples[0]
@@ -112,7 +113,6 @@ def get_reward(game):
     # closer = dist < game.previous_distance
     # farther = dist > game.previous_distance
     # game.previous_distance = dist
-    reward = 0
     # if closer:
     #     reward += 1.0
     # elif farther:
@@ -387,159 +387,127 @@ def _restore(game, snap):
     return snap["total_reward"]
 
 
-def play_single_game(save_path, Q_table):
-    """Visualize with step mode:
-       - Press S to toggle step mode
-       - Right arrow: next step
-       - Left arrow: previous step
+def play_single_game(save_path, Q_table, epsilon_override=None, viz_fps=15):
+    """Deterministic step navigation:
+       S = toggle step mode
+       ← / → = move through recorded timeline (no re-sampling epsilon)
+       ESC = quit
     """
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("Snake AI (S=step, ←/→ navigate)")
+    pygame.display.set_caption("Snake AI (S=step, ←/→ rewind, → forward)")
     clock = pygame.time.Clock()
 
     game = SnakeGame()
     game.reset()
 
-    # History
+    eps = epsilon_override if epsilon_override is not None else epsilon
+
+    # Timeline data
+    snapshots = [_snapshot(game, 0.0)]   # snapshot[i]
+    actions = []  # actions[i] dict -> produced snapshots[i+1]
     total_reward = 0.0
-    history = [_snapshot(game, total_reward)]  # history[0] = initial state
-    history_actions = []   # action taken to reach history[i] (i>=1):
-    history_qrows = []     # Q row used for that action
-    step_idx = 0           # index into history (0..len(history)-1)
+    step_idx = 0          # points to current snapshot index
     step_mode = False
+    vision_mode = False  # add this toggle
 
-    def redraw(idx, with_highlight=True):
-        nonlocal total_reward
-        total_reward = _restore(game, history[idx])
-        print_vision(game, idx)
-
-        if game.alive:
-            s = encode_state(game)
-            next_qrow = Q_table[s]
-            next_action = safe_argmax(next_qrow, game)
+    def redraw():
+        snap = snapshots[step_idx]
+        tr = _restore(game, snap)
+        if step_idx > 0:
+            last_act = actions[step_idx - 1]
+            last_action_id = last_act["action"]
+            qrow = last_act["qrow"]
+            exploring = last_act["explore"]
         else:
-            next_qrow = None
-            next_action = None
+            last_action_id = None
+            qrow = None
+            exploring = False
+        elapsed = step_idx * 0.1
+        draw_game(screen, game, elapsed, tr,
+                  last_action=last_action_id,
+                  action_values=qrow,
+                  next_is_explore=exploring,
+                  vision_only=vision_mode)
+        pygame.display.flip()
 
-        elapsed = idx * 0.1
-        draw_game(screen, game, elapsed, total_reward,
-                last_action=next_action, action_values=next_qrow)
-    def forward_compute_one():
-        """Compute one AI step from current end of history, append snapshot, draw."""
-        nonlocal total_reward, step_idx
+    def make_one_step():
+        nonlocal total_reward
         if not game.alive:
-            return
+            return False
         state = encode_state(game)
-        qrow = Q_table[state]
-        action = safe_argmax(qrow, game)
-        direction = action_to_direction(action)
+        qrow = Q_table[state].copy()
+        valid = get_valid_actions(game)
+        if not valid:
+            return False
+        explore = (random.random() < eps)
+        act = random.choice(valid) if explore else safe_argmax(qrow, game)
+        direction = action_to_direction(act)
         game.change_direction(direction)
         game.step()
         r = get_reward(game)
         total_reward += r
+        actions.append({
+            "action": act,
+            "explore": explore,
+            "qrow": qrow,
+            "reward": r,
+            "total_reward": total_reward
+        })
+        snapshots.append(_snapshot(game, total_reward))
+        return True
 
-        # Save
-        history_actions.append(action)
-        history_qrows.append(qrow.copy())
-        history.append(_snapshot(game, total_reward))
-        step_idx = len(history) - 1
-
-        # Draw and print
-        print_vision(game, step_idx)
-        elapsed = step_idx * 0.1
-        draw_game(screen, game, elapsed, total_reward,
-                  last_action=action, action_values=qrow)
-
-    # Initial draw
-    redraw(step_idx, with_highlight=False)
+    redraw()
 
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                pygame.quit()
+                return
             elif event.type == pygame.KEYDOWN:
-                # toggle step mode with 'S'
-                if event.key == pygame.K_s:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                    pygame.quit()
+                    return
+                if event.key == pygame.K_v:       # toggle vision-only view
+                    vision_mode = not vision_mode
+                    redraw()
+                elif event.key == pygame.K_s:
                     step_mode = not step_mode
-
+                    if not step_mode:
+                        step_idx = len(snapshots) - 1
+                        redraw()
                 elif step_mode and event.key == pygame.K_RIGHT:
-                    # Forward 1 step
-                    if step_idx == len(history) - 1:
-                        forward_compute_one()
-                    else:
+                    if step_idx < len(snapshots) - 1:
                         step_idx += 1
-                        redraw(step_idx, with_highlight=True)
-
+                        redraw()
+                    else:
+                        if make_one_step():
+                            step_idx += 1
+                            redraw()
                 elif step_mode and event.key == pygame.K_LEFT:
-                    # Back 1 step
                     if step_idx > 0:
                         step_idx -= 1
-                        redraw(step_idx, with_highlight=True)
+                        redraw()
 
         if not step_mode:
             if game.alive:
-                forward_compute_one()
+                if step_idx < len(snapshots) - 1:
+                    step_idx = len(snapshots) - 1
+                    redraw()
+                progressed = make_one_step()
+                if progressed:
+                    step_idx += 1
+                    redraw()
             else:
-                redraw(step_idx, with_highlight=True)
-            clock.tick(15)
+                redraw()
+            clock.tick(viz_fps)          # <- use CLI speed here
         else:
-            clock.tick(30)
+            clock.tick(30)                # step-mode UI refresh
 
     pygame.quit()
-
-# --- Add below imports / globals ---
-def print_vision(game, step_idx=None):
-    """
-    Prints a BOARD_SIZE x BOARD_SIZE grid:
-      '.' = not in any of the 4 vision rays (hidden)
-      '0' = visible empty cell
-      'H' = snake head (always visible)
-      'S' = visible snake body segment
-      'G' = visible green apple
-      'R' = visible red apple
-    Vision = straight rays UP / DOWN / LEFT / RIGHT from head until wall.
-    """
-    size = game.board_size
-    head_x, head_y = game.snake[0]
-    body = set(game.snake[1:])
-    greens = set(game.green_apples)
-    reds = set(game.red_apples)
-
-    # Start with all hidden
-    grid = [['.' for _ in range(size)] for _ in range(size)]
-
-    def reveal(x, y):
-        if (x, y) == (head_x, head_y):
-            grid[y][x] = 'H'
-        elif (x, y) in body:
-            grid[y][x] = 'S'
-        elif (x, y) in greens:
-            grid[y][x] = 'G'
-        elif (x, y) in reds:
-            grid[y][x] = 'R'
-        else:
-            grid[y][x] = '0'
-
-    # Head always visible
-    reveal(head_x, head_y)
-
-    # Rays: up, down, left, right
-    for dx, dy in [(0,-1),(0,1),(-1,0),(1,0)]:
-        x, y = head_x, head_y
-        while True:
-            x += dx
-            y += dy
-            if x < 0 or x >= size or y < 0 or y >= size:
-                break
-            reveal(x, y)
-
-    prefix = f"[STEP {step_idx}] " if step_idx is not None else ""
-    print(prefix)
-    for row in grid:
-        print(''.join(row))
-    print()  # extra newline
 
 
 def test_agent(save_path, nb_games=10):
@@ -554,7 +522,6 @@ def test_agent(save_path, nb_games=10):
         return
 
     pygame.init()
-    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption("Snake AI Test")
     clock = pygame.time.Clock()
 
@@ -579,9 +546,6 @@ def test_agent(save_path, nb_games=10):
             game.change_direction(direction)
             game.step()
             steps += 1
-
-            elapsed_time = steps * 0.1
-            draw_game(screen, game, elapsed_time)
             clock.tick(10)  # Slower for observation
 
         score = len(game.snake) - initial_length
