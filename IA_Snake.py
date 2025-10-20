@@ -395,7 +395,8 @@ def play_single_game(save_path, Q_table, epsilon_override=None, viz_fps=15):
     """
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("Snake AI (S=step, ←/→ rewind, → forward)")
+    pygame.display.set_caption("Snake AI (S=step, ←/→ rewind, → forward),\
+ (V=snake vision)")
     clock = pygame.time.Clock()
 
     game = SnakeGame()

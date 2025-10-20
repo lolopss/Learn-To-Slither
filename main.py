@@ -1,31 +1,26 @@
 import argparse
-import time
-import random
-import game
-import IA_Snake
 from lobby import run_lobby
-# --------------------------------SNAKE_GAME---------------------------------#
 
 
-
-# --------------------------------MAIN---------------------------------#
 def parse_args():
     parser = argparse.ArgumentParser(description="Learn2Slither snake AI")
 
-    # Number of sessions (required)
-    parser.add_argument(
-        "-sessions",
-        type=int,
-        default=1,
-        help="Number of sessions to run"
-    )
-
-    # Save file path (required)
+    # Save file path (legacy)
     parser.add_argument(
         "-save",
         type=str,
         default="./learning_state/q_table.npy",
-        help="Path to save the learning state"
+        help="Path to save the learning state (legacy;\
+              overridden by -qtable if provided)"
+    )
+
+    # Q-table path (preferred)
+    parser.add_argument(
+        "-qtable",
+        type=str,
+        default="./learning_state/q_table.npy",
+        help="Path to load/save the Q-table (e.g., \
+            learning_state/q_table_1_episode.npy)"
     )
 
     # Visual mode (optional, default on)
@@ -64,14 +59,15 @@ def parse_args():
 def main():
     args = parse_args()
 
+    qtable_path = args.qtable if args.qtable else args.save
+
     print(f"Sessions : {args.sessions}")
-    print(f"Save path: {args.save}")
+    print(f"Q-table  : {qtable_path}")
     print(f"Visual   : {args.visual}")
 
-    
-    # IA_Snake.train_agent(args.save, args.episode, args.visual)
-    run_lobby(args.save, args.episode, args.visual, args.speed)
-    print(f"Save learning state in {args.save}")
+    # IA_Snake.train_agent(qtable_path, args.episode, args.visual)
+    run_lobby(qtable_path, args.episode, args.visual, args.speed)
+    print(f"Save learning state in {qtable_path}")
 
 
 if __name__ == "__main__":

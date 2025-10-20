@@ -98,8 +98,8 @@ def draw_state_panel(screen, game, info, panel_x, panel_y,
     pygame.draw.rect(screen, COLORS["BORDER"], panel_rect, 2, border_radius=8)
 
     title = font_title.render("SNAKE VISION", True, COLORS["HEADERS"])
-    screen.blit(title, (panel_x + (width - title.get_width()) // 2, panel_y + 6))
-
+    screen.blit(title, (panel_x + (width - title.get_width()) //
+                        2, panel_y + 6))
     grid_x = panel_x + 8
     grid_y = panel_y + title_h
     col_w = (width - 80) // 4  # 80px for label column
@@ -108,15 +108,16 @@ def draw_state_panel(screen, game, info, panel_x, panel_y,
     for d_i, label in enumerate(DIRECTION_LABELS):
         hx = grid_x + 80 + d_i * col_w
         hdr_col = (
-            (70,130,180) if d_i == 0 else
-            (205,133,63) if d_i == 1 else
-            (138,43,226) if d_i == 2 else
-            (46,139,87)
+            (70, 130, 180) if d_i == 0 else
+            (205, 133, 63) if d_i == 1 else
+            (138, 43, 226) if d_i == 2 else
+            (46, 139, 87)
         )
         if last_action == d_i:
             hdr_col = tuple(min(255, int(c * 1.6)) for c in hdr_col)
-        pygame.draw.rect(screen, hdr_col, (hx, grid_y, col_w - 6, header_h - 6), border_radius=4)
-        txt = font_dir.render(label, True, (0,0,0))
+        pygame.draw.rect(screen, hdr_col, (hx, grid_y, col_w - 6,
+                                           header_h - 6), border_radius=4)
+        txt = font_dir.render(label, True, (0, 0, 0))
         screen.blit(txt, (hx + (col_w - 6 - txt.get_width())//2,
                           grid_y + (header_h - 6 - txt.get_height())//2))
 
@@ -134,13 +135,19 @@ def draw_state_panel(screen, game, info, panel_x, panel_y,
             best_idx = int(max(range(4), key=lambda i: values[i]))
         else:
             positives = [i for i, v in enumerate(values) if v > 0]
-            best_idx = positives[0] if positives else int(max(range(4), key=lambda i: values[i]))
+            if positives:
+                best_idx = positives[0]
+            else:
+                best_idx = int(
+                    max(range(4), key=lambda i: values[i])
+                )
 
         for d_i, val in enumerate(values):
             cx = grid_x + 80 + d_i * col_w + (col_w // 2) - 4
             cy = ry + row_h // 2 - 6
             draw_col = _circle_color(row_key, base_color, val,
-                                     max_free=max_free if row_key == "Free" else None)
+                                     max_free=max_free if row_key
+                                     == "Free" else None)
             if d_i == best_idx and val > 0:
                 draw_col = tuple(min(255, int(c * 1.8)) for c in base_color)
             pygame.draw.circle(screen, draw_col, (cx, cy), 14)
@@ -154,13 +161,15 @@ def draw_state_panel(screen, game, info, panel_x, panel_y,
         pygame.draw.rect(screen, COLORS["PANEL_BG"], q_rect, border_radius=8)
         pygame.draw.rect(screen, COLORS["BORDER"], q_rect, 2, border_radius=8)
         q_title = font_title.render("ACTIONS (Q)", True, COLORS["HEADERS"])
-        screen.blit(q_title, (panel_x + (width - q_title.get_width()) // 2, q_y + 4))
+        screen.blit(q_title, (panel_x + (width -
+                    q_title.get_width()) // 2, q_y + 4))
 
         # Exploration flag
         if next_is_explore:
             exp_font = pygame.font.SysFont(None, 22)
             exp_txt = exp_font.render("EXPLORATION", True, (255, 60, 60))
-            screen.blit(exp_txt, (panel_x + (width - exp_txt.get_width()) // 2, q_y + 28))
+            screen.blit(exp_txt, (panel_x + (width - exp_txt.get_width())
+                        // 2, q_y + 28))
 
         names = ["UP", "DOWN", "LEFT", "RIGHT"]
         for i, (n, qv) in enumerate(zip(names, action_values)):
@@ -175,7 +184,8 @@ def draw_state_panel(screen, game, info, panel_x, panel_y,
             highlight = last_action == i
             base_draw_col = act_col
             if highlight:
-                base_draw_col = tuple(min(255, int(c * 1.7)) for c in base_draw_col)
+                base_draw_col = tuple(min(255, int(c * 1.7))
+                                      for c in base_draw_col)
             pygame.draw.circle(screen, base_draw_col, (bx + 35, by), 22)
 
             # If exploration chose this action, add red ring + tag
@@ -185,7 +195,8 @@ def draw_state_panel(screen, game, info, panel_x, panel_y,
                 screen.blit(tag, (bx + 35 - tag.get_width()//2, by + 32))
 
             at = font_val.render(n, True, (0, 0, 0))
-            screen.blit(at, (bx + 35 - at.get_width()//2, by - at.get_height()//2))
+            screen.blit(at, (bx + 35 - at.get_width()
+                        // 2, by - at.get_height() // 2))
             qtxt = font_val.render(f"{qv:.2f}", True, COLORS["TEXT"])
             screen.blit(qtxt, (bx + 35 - qtxt.get_width()//2, by + 26))
 
