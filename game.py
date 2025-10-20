@@ -26,11 +26,30 @@ class SnakeGame:
         self.reset()
 
     def reset(self):
-        # Snake starts length 3, horizontal, in the middle of the board
-        start_x = self.board_size // 2
-        start_y = self.board_size // 2
-        self.snake = [(start_x - i, start_y) for i in range(3)]  # Horizontal
-        self.direction = (1, 0)  # Moving right
+        # Random spawn: length 3, random orientation and direction
+        size = self.board_size
+        # Choose direction: right, left, down, up
+        dir_options = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        dx, dy = random.choice(dir_options)
+
+        if (dx, dy) == (1, 0):  # moving right, body extends to the left
+            x = random.randint(2, size - 1)
+            y = random.randint(0, size - 1)
+            self.snake = [(x - i, y) for i in range(3)]
+        elif (dx, dy) == (-1, 0):  # moving left, body extends to the right
+            x = random.randint(0, size - 3)
+            y = random.randint(0, size - 1)
+            self.snake = [(x + i, y) for i in range(3)]
+        elif (dx, dy) == (0, 1):  # moving down, body extends upward
+            x = random.randint(0, size - 1)
+            y = random.randint(2, size - 1)
+            self.snake = [(x, y - i) for i in range(3)]
+        else:  # (0, -1) moving up, body extends downward
+            x = random.randint(0, size - 1)
+            y = random.randint(0, size - 3)
+            self.snake = [(x, y + i) for i in range(3)]
+
+        self.direction = (dx, dy)
         self.spawn_apples()
         self.alive = True
         self.direction_changed = False  # Track change in direction for step
