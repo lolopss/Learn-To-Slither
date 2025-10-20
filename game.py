@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 import pygame
 import random
-import numpy as np
-import sys
-import time
 from IA_visualisation import draw_right_panel
 
 # ---------------- CONFIG ---------------- #
@@ -36,7 +33,7 @@ class SnakeGame:
         self.direction = (1, 0)  # Moving right
         self.spawn_apples()
         self.alive = True
-        self.direction_changed = False  # Track if direction was changed in this step
+        self.direction_changed = False  # Track change in direction for step
 
     def spawn_apples(self):
         """Always 2 green apples and 1 red apple on the board."""
@@ -46,14 +43,15 @@ class SnakeGame:
 
         # Generate all possible positions
         all_positions = [
-            (x, y) for x in range(self.board_size) for y in range(self.board_size)
+            (x, y) for x in range(self.board_size) for y
+            in range(self.board_size)
         ]
         available_positions = [
             pos for pos in all_positions if pos not in occupied
         ]
 
         # Check if we have enough space
-        if len(available_positions) < 3:  # Need at least 3 positions (2 green + 1 red)
+        if len(available_positions) < 3:  # 2 green + 1 red
             print("Warning: Not enough space for apples!")
             return
 
@@ -68,7 +66,7 @@ class SnakeGame:
         if not self.alive:
             return
 
-        self.direction_changed = False  # Allow direction change for the new step
+        self.direction_changed = False  # Allow direction change for the step
 
         head_x, head_y = self.snake[0]
         dx, dy = self.direction
@@ -90,7 +88,7 @@ class SnakeGame:
             self.ate_green = 1
             self.ate_red = 0
             self.green_apples.remove(new_head)
-            self.snake.insert(0, new_head)  # Add new head, don't remove tail (snake grows)
+            self.snake.insert(0, new_head)  # Add head, don't remove tail
             self.add_apple(self.green_apples)  # Add a new green apple
             return
 
@@ -100,20 +98,20 @@ class SnakeGame:
             self.ate_green = 0  # Reset ate_green
             self.red_apples.remove(new_head)
             self.snake.insert(0, new_head)  # Add new head first
-            
+
             # Remove tail (normal move)
             if len(self.snake) > 1:
                 self.snake.pop()
-            
+
             # Remove one more segment (shrink effect)
             if len(self.snake) > 1:
                 self.snake.pop()
-            
+
             # Check if snake is too small
             if len(self.snake) < 1:
                 self.alive = False
                 return
-                
+
             self.add_apple(self.red_apples)  # Add a new red apple
             return
 
@@ -127,14 +125,15 @@ class SnakeGame:
         """Add a single apple to the specified list (green or red)."""
         occupied = set(self.snake + self.green_apples + self.red_apples)
         while True:
-            pos = (random.randrange(self.board_size), random.randrange(self.board_size))
+            pos = (random.randrange(self.board_size),
+                   random.randrange(self.board_size))
             if pos not in occupied:
                 apple_list.append(pos)
                 break
 
     def change_direction(self, new_dir):
         if self.direction_changed:
-            return  # Ignore further direction changes in the same step (CHECK MIGHT BE PROBLEM FOR EPSILON)
+            return  # Ignore further direction changes in the same step
 
         dx, dy = self.direction
         ndx, ndy = new_dir
@@ -144,10 +143,14 @@ class SnakeGame:
             self.direction_changed = True  # Mark direction as changed
 
     def get_board(self):
-        """Generate a 2D grid representation of the game with walls outside the playable area."""
+        """ Generate a 2D grid representation
+            of the game with walls
+            outside the playable area."""
         # Create an empty board filled with '0' (empty cells), including walls
-        board = [['W' if x == 0 or x == self.board_size + 1 or y == 0 or y == self.board_size + 1 else '0'
-                  for x in range(self.board_size + 2)] for y in range(self.board_size + 2)]
+        board = [['W' if x == 0 or x == self.board_size + 1 or y == 0
+                  or y == self.board_size + 1 else '0'
+                  for x in range(self.board_size + 2)] for y in range(
+                      self.board_size + 2)]
 
         # Add the snake's body
         for i, (x, y) in enumerate(self.snake):
@@ -169,15 +172,16 @@ class SnakeGame:
 
 # ---------------- DRAWING ---------------- #
 
-#Used to hange visibility in game (V BUTTON)
+# Used to hange visibility in game (V BUTTON)
 def _compute_visible_cells(game):
     size = game.board_size
     head_x, head_y = game.snake[0]
     vis = {(head_x, head_y)}
-    for dx, dy in [(0,-1),(1,0),(0,1),(-1,0)]:
+    for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
         x, y = head_x, head_y
         while True:
-            x += dx; y += dy
+            x += dx
+            y += dy
             if x < 0 or x >= size or y < 0 or y >= size:
                 break
             vis.add((x, y))
@@ -193,8 +197,10 @@ def compute_direction_scan(game):
         immediate_block  : 1 if the NEXT cell is wall or snake body
         green_visible    : 1 if any green apple is somewhere along that ray
         red_visible      : 1 if any red apple is along the ray
-        body_visible     : 1 if any (non-head) snake segment is along the ray (past the first cell)
-        free_len         : how many free cells (not wall, not body) until collision/wall
+        body_visible     : 1 if any (non-head) snake segment is along the ray
+                           (past the first cell)
+        free_len         : how many free cells (not wall, not body) until
+                           collision/wall
     Returns:
         dict with keys:
             'headers' : ["UP","RIGHT","DOWN","LEFT"]
@@ -213,27 +219,28 @@ def compute_direction_scan(game):
     greens = set(game.green_apples)
     reds = set(game.red_apples)
 
-    directions = [(0,-1),(1,0),(0,1),(-1,0)]
-    headers = ["UP","RIGHT","DOWN","LEFT"]
+    directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+    headers = ["UP", "RIGHT", "DOWN", "LEFT"]
 
-    imm    = []
-    gvis   = []
-    rvis   = []
-    bvis   = []
-    free   = []
+    imm = []
+    gvis = []
+    rvis = []
+    bvis = []
+    free = []
 
     size = game.board_size
 
     for dx, dy in directions:
         nx, ny = head_x + dx, head_y + dy
         # immediate block
-        immediate_block = int(nx < 0 or nx >= size or ny < 0 or ny >= size or (nx, ny) in body)
+        immediate_block = int(nx < 0 or nx >= size or ny < 0 or ny >= size or (
+            nx, ny) in body)
         imm.append(immediate_block)
 
         # scan ray
         green_seen = 0
-        red_seen   = 0
-        body_seen  = 0
+        red_seen = 0
+        body_seen = 0
         free_cells = 0
 
         cx, cy = head_x, head_y
@@ -251,7 +258,8 @@ def compute_direction_scan(game):
             if pos in reds:
                 red_seen = 1
             free_cells += 1
-            # if both apples seen we can still continue for body but break early if desired
+            # if both apples seen we can still continue for body but
+            # break early if desired
             # keep scanning to know if body occurs behind apples:
             # (optional early-break omitted for clarity)
 
@@ -281,17 +289,20 @@ def draw_game(screen, game: 'SnakeGame', elapsed_time, total_reward=0,
               last_action=None, action_values=None, show_info=True,
               next_is_explore=False, vision_only=False):
     screen.fill((0, 0, 90))
-    board_surface = pygame.Surface((BOARD_SIZE * CELL_SIZE, BOARD_SIZE * CELL_SIZE))
+    board_surface = pygame.Surface((BOARD_SIZE * CELL_SIZE, BOARD_SIZE *
+                                    CELL_SIZE))
     board_surface.fill((50, 50, 50))
 
     # Precompute visibility if enabled
-    visible = _compute_visible_cells(game) if vision_only and game.snake else None
+    visible = _compute_visible_cells(
+        game) if vision_only and game.snake else None
 
     # grid
     for x in range(game.board_size):
         for y in range(game.board_size):
             pygame.draw.rect(board_surface, (70, 70, 70),
-                             pygame.Rect(x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE), 1)
+                             pygame.Rect(x*CELL_SIZE,
+                                         y*CELL_SIZE, CELL_SIZE, CELL_SIZE), 1)
 
     # snake
     for i, (x, y) in enumerate(game.snake):
@@ -300,12 +311,16 @@ def draw_game(screen, game: 'SnakeGame', elapsed_time, total_reward=0,
         rect = pygame.Rect(x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE)
         if i == 0:
             pygame.draw.rect(board_surface, (0, 200, 150), rect)
-            eye_size = CELL_SIZE//5; off_x = CELL_SIZE//4; off_y = CELL_SIZE//4
-            pygame.draw.rect(board_surface, (255,255,255),
-                             pygame.Rect(x*CELL_SIZE+off_x, y*CELL_SIZE+off_y, eye_size, eye_size))
-            pygame.draw.rect(board_surface, (255,255,255),
+            eye_size = CELL_SIZE // 5
+            off_x = CELL_SIZE // 4
+            off_y = CELL_SIZE // 4
+            pygame.draw.rect(board_surface, (255, 255, 255),
+                             pygame.Rect(x*CELL_SIZE+off_x, y*CELL_SIZE+off_y,
+                                         eye_size, eye_size))
+            pygame.draw.rect(board_surface, (255, 255, 255),
                              pygame.Rect(x*CELL_SIZE+CELL_SIZE-off_x-eye_size,
-                                         y*CELL_SIZE+off_y, eye_size, eye_size))
+                                         y*CELL_SIZE+off_y, eye_size,
+                                         eye_size))
         else:
             pygame.draw.rect(board_surface, (0, 150, 100), rect)
 
@@ -313,30 +328,36 @@ def draw_game(screen, game: 'SnakeGame', elapsed_time, total_reward=0,
     for (x, y) in game.green_apples:
         if visible is not None and (x, y) not in visible:
             continue
-        pygame.draw.rect(board_surface, (100,255,100),
-                         pygame.Rect(x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE))
+        pygame.draw.rect(board_surface, (100, 255, 100),
+                         pygame.Rect(x*CELL_SIZE, y*CELL_SIZE,
+                                     CELL_SIZE, CELL_SIZE))
     for (x, y) in game.red_apples:
         if visible is not None and (x, y) not in visible:
             continue
-        pygame.draw.rect(board_surface, (255,100,100),
-                         pygame.Rect(x*CELL_SIZE, y*CELL_SIZE, CELL_SIZE, CELL_SIZE))
+        pygame.draw.rect(board_surface, (255, 100, 100),
+                         pygame.Rect(x*CELL_SIZE, y*CELL_SIZE,
+                                     CELL_SIZE, CELL_SIZE))
 
     screen.blit(board_surface, (SIDE_PANEL_WIDTH, TOP_PANEL_HEIGHT))
-    pygame.draw.rect(screen, (0,0,139),
-                     pygame.Rect(0,0,WINDOW_WIDTH,TOP_PANEL_HEIGHT))
+    pygame.draw.rect(screen, (0, 0, 139),
+                     pygame.Rect(0, 0, WINDOW_WIDTH, TOP_PANEL_HEIGHT))
     font = pygame.font.SysFont(None, 36)
-    snake_size_text = font.render(f"Snake Size: {len(game.snake)}", True, (255,255,255))
+    snake_size_text = font.render(f"Snake Size: {len(game.snake)}\
+                                  ", True, (255, 255, 255))
     screen.blit(snake_size_text,
-                snake_size_text.get_rect(center=(WINDOW_WIDTH//2.9, TOP_PANEL_HEIGHT//2)))
-    elapsed_time_text = font.render(f"Time: {int(elapsed_time)}s", True, (255,255,255))
+                snake_size_text.get_rect(center=(WINDOW_WIDTH//2.9,
+                                                 TOP_PANEL_HEIGHT//2)))
+    elapsed_time_text = font.render(f"Time: {int(elapsed_time)}s", True,
+                                    (255, 255, 255))
     screen.blit(elapsed_time_text,
-                elapsed_time_text.get_rect(center=(WINDOW_WIDTH//6, TOP_PANEL_HEIGHT//2)))
+                elapsed_time_text.get_rect(center=(WINDOW_WIDTH//6,
+                                                   TOP_PANEL_HEIGHT // 2)))
 
-    pygame.draw.rect(screen, (0,0,139),
+    pygame.draw.rect(screen, (0, 0, 139),
                      pygame.Rect(0, WINDOW_HEIGHT-BOTTOM_PANEL_HEIGHT,
                                  WINDOW_WIDTH, BOTTOM_PANEL_HEIGHT))
-    pygame.draw.rect(screen, (0,0,139),
-                     pygame.Rect(0,0,SIDE_PANEL_WIDTH,WINDOW_HEIGHT))
+    pygame.draw.rect(screen, (0, 0, 139),
+                     pygame.Rect(0, 0, SIDE_PANEL_WIDTH, WINDOW_HEIGHT))
     # Right panel call
     if show_info:
         draw_right_panel(screen, game,
@@ -348,45 +369,6 @@ def draw_game(screen, game: 'SnakeGame', elapsed_time, total_reward=0,
                          next_is_explore=next_is_explore)
 
     pygame.display.flip()
-
-# # ---------------- MAIN LOOP ---------------- #
-# def game_loop():
-#     pygame.init()
-#     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-#     pygame.display.set_caption("Learn2Slither Base Game")
-#     clock = pygame.time.Clock()
-
-#     game = SnakeGame(BOARD_SIZE)
-#     board = game.get_board()
-
-#     # Print the board
-#     for row in board:
-#         print(' '.join(row))
-
-#     start_time = time.time()  # Record the start time
-
-#     while True:
-#         for event in pygame.event.get():
-#             if event.type == pygame.QUIT:
-#                 pygame.quit()
-#                 sys.exit()
-#             elif event.type == pygame.KEYDOWN:
-#                 if event.key == pygame.K_UP:
-#                     game.change_direction((0, -1))
-#                 elif event.key == pygame.K_DOWN:
-#                     game.change_direction((0, 1))
-#                 elif event.key == pygame.K_LEFT:
-#                     game.change_direction((-1, 0))
-#                 elif event.key == pygame.K_RIGHT:
-#                     game.change_direction((1, 0))
-
-#         if game.alive:
-#             game.step()
-
-#         elapsed_time = time.time() - start_time  # Calculate elapsed time
-#         draw_game(screen, game, elapsed_time, total_reward, last_rewards)  # Pass elapsed time to draw_game
-#         clock.tick(FPS)  # Speed of the snake
-
 
 # if __name__ == "__main__":
 #     game_loop()

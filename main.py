@@ -18,7 +18,7 @@ def parse_args():
     parser.add_argument(
         "-qtable",
         type=str,
-        default="./learning_state/q_table.npy",
+        default=None,
         help="Path to load/save the Q-table (e.g., \
             learning_state/q_table_1_episode.npy)"
     )
@@ -61,13 +61,12 @@ def main():
 
     qtable_path = args.qtable if args.qtable else args.save
 
-    print(f"Sessions : {args.sessions}")
     print(f"Q-table  : {qtable_path}")
     print(f"Visual   : {args.visual}")
 
     # IA_Snake.train_agent(qtable_path, args.episode, args.visual)
     run_lobby(qtable_path, args.episode, args.visual, args.speed)
-    print(f"Save learning state in {qtable_path}")
+    # print(f"Save learning state in {qtable_path}")
 
 
 if __name__ == "__main__":
