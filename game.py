@@ -54,7 +54,7 @@ class SnakeGame:
         self.direction_changed = False  # Track change in direction for step
 
     def spawn_apples(self):
-        """Always 2 green apples and 25 red apples on the board."""
+        """Always 2 green apples and 1 red apples on the board."""
         occupied = set(self.snake)
         self.green_apples = []
         self.red_apples = []
@@ -65,7 +65,7 @@ class SnakeGame:
                                in all_positions if pos not in occupied]
 
         greens_needed = 2
-        reds_needed = 25
+        reds_needed = 1
         total_needed = greens_needed + reds_needed
 
         if len(available_positions) < total_needed:
