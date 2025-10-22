@@ -10,7 +10,6 @@ INFO_PANEL_WIDTH = 600   # space on the right for smoother interface
 SIDE_PANEL_WIDTH = 100   # space on the left for additional information
 TOP_PANEL_HEIGHT = 50    # space on top for time + score
 BOTTOM_PANEL_HEIGHT = 50  # space on bottom
-FPS = 3              # frames per second (snake speed)
 
 WINDOW_WIDTH = BOARD_SIZE * CELL_SIZE + INFO_PANEL_WIDTH + SIDE_PANEL_WIDTH
 WINDOW_HEIGHT = BOARD_SIZE * CELL_SIZE + TOP_PANEL_HEIGHT + BOTTOM_PANEL_HEIGHT
@@ -55,31 +54,30 @@ class SnakeGame:
         self.direction_changed = False  # Track change in direction for step
 
     def spawn_apples(self):
-        """Always 2 green apples and 1 red apple on the board."""
-        occupied = set(self.snake)  # Include the snake's body as occupied
+        """Always 2 green apples and 25 red apples on the board."""
+        occupied = set(self.snake)
         self.green_apples = []
         self.red_apples = []
 
-        # Generate all possible positions
-        all_positions = [
-            (x, y) for x in range(self.board_size) for y
-            in range(self.board_size)
-        ]
-        available_positions = [
-            pos for pos in all_positions if pos not in occupied
-        ]
+        all_positions = [(x, y) for x in range(self.board_size)
+                         for y in range(self.board_size)]
+        available_positions = [pos for pos
+                               in all_positions if pos not in occupied]
 
-        # Check if we have enough space
-        if len(available_positions) < 3:  # 2 green + 1 red
-            print("Warning: Not enough space for apples!")
-            return
+        greens_needed = 2
+        reds_needed = 25
+        total_needed = greens_needed + reds_needed
 
-        # Randomly select positions for apples
-        selected_positions = random.sample(available_positions, 3)
+        if len(available_positions) < total_needed:
+            print(f"Warning: Not enough space for apples! needed\
+                  ={total_needed}, available={len(available_positions)}")
+            total_needed = len(available_positions)
 
-        # Assign first 2 to green apples, last 1 to red apple
-        self.green_apples = selected_positions[:2]
-        self.red_apples = [selected_positions[2]]
+        selected_positions = random.sample(available_positions, total_needed)
+
+        self.green_apples = selected_positions[:greens_needed]
+        self.red_apples = selected_positions[greens_needed:greens_needed
+                                             + reds_needed]
 
     def step(self):
         if not self.alive:
@@ -99,6 +97,11 @@ class SnakeGame:
 
         # Self collision
         if new_head in self.snake:
+            self.alive = False
+            return
+
+        # If size is 1 and the next cell is an apple, die immediately
+        if len(self.snake) == 1 and (new_head in self.red_apples):
             self.alive = False
             return
 
@@ -364,7 +367,7 @@ def draw_game(screen, game: 'SnakeGame', elapsed_time, total_reward=0,
     snake_size_text = font.render(f"Snake Size: {len(game.snake)}\
                                   ", True, (255, 255, 255))
     screen.blit(snake_size_text,
-                snake_size_text.get_rect(center=(WINDOW_WIDTH//2.9,
+                snake_size_text.get_rect(center=(WINDOW_WIDTH//2,
                                                  TOP_PANEL_HEIGHT//2)))
     elapsed_time_text = font.render(f"Time: {int(elapsed_time)}s", True,
                                     (255, 255, 255))

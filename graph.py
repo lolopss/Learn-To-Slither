@@ -18,6 +18,10 @@ def main():
                         help="Path to saved per-episode lengths")
     parser.add_argument("--smooth", type=int, default=0,
                         help="Rolling window size (0 = no smoothing)")
+    # NEW: output image path or directory
+    parser.add_argument("--out", "-o", default=None,
+                        help="Output image path or directory (default:\
+                         alongside the input .npy as .png)")
     args = parser.parse_args()
 
     # Resolve path relative to this script for reliability
@@ -80,6 +84,26 @@ def main():
     plt.grid(alpha=0.3)
     plt.legend()
     plt.tight_layout()
+
+    # Determine output path
+    out_path = args.out
+    if out_path is None:
+        base = os.path.splitext(full_path)[0]
+        out_path = base + ".png"
+    else:
+        # If a directory is given, place file there with derived name
+        if out_path.endswith(os.sep) or os.path.isdir(out_path):
+            fname = os.path.splitext(os.path.basename(args.path))[0] + ".png"
+            out_path = os.path.join(out_path, fname)
+
+    # Ensure directory exists
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    plt.savefig(out_path, dpi=160, bbox_inches="tight")
+    print(f"[INFO] Saved plot to: {out_path}")
+
     plt.show()
 
 

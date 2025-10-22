@@ -209,15 +209,6 @@ def draw_right_panel(screen, game, elapsed_time=0, total_reward=0,
     panel_x = screen.get_width() - info_panel_width + 10
     panel_y = 30
     # small stats top block
-    font = pygame.font.SysFont(None, 20)
-    stats = [
-        f"Time: {int(elapsed_time)}s",
-        f"Len: {len(game.snake)}",
-        f"RewardΣ: {total_reward}",
-    ]
-    for i, line in enumerate(stats):
-        txt = font.render(line, True, COLORS["TEXT"])
-        screen.blit(txt, (panel_x, panel_y - 55 + i*18))
     draw_state_panel(screen, game, info, panel_x, panel_y,
                      last_action=last_action,
                      action_values=action_values,
